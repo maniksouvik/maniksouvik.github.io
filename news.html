@@ -1,0 +1,218 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News - Souvik Manik</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 flex flex-col">
+    <div id="starfield" class="fixed inset-0 pointer-events-none"></div>
+    <div class="overlay fixed inset-0 pointer-events-none"></div>
+    <nav class="bg-gray-800 dark:bg-gray-700 text-white fixed w-full top-0 z-30 shadow-md h-16 flex items-center">
+        <div class="container mx-auto flex justify-between items-center px-4 sm:px-6 md:px-8">
+            <a class="text-lg sm:text-xl font-bold font-playfair" href="index.html">Souvik Manik</a>
+            <button id="menu-toggle" class="md:hidden focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
+                </svg>
+            </button>
+            <ul id="nav-menu" class="hidden md:flex space-x-4 font-roboto">
+                <li><a href="index.html" class="hover:text-blue-400 transition-colors">Home</a></li>
+                <li><a href="publications.html" class="hover:text-blue-400 transition-colors">Publications</a></li>
+                <li><a href="news.html" class="hover:text-blue-400 transition-colors">News</a></li>
+                <li><a href="awards.html" class="hover:text-blue-400 transition-colors">Awards</a></li>
+                <li><a href="contact.html" class="hover:text-blue-400 transition-colors">Contact</a></li>
+            </ul>
+        </div>
+        <ul id="mobile-menu" class="hidden md:hidden bg-gray-800 dark:bg-gray-700 w-full font-roboto absolute top-16 left-0">
+            <li><a href="index.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Home</a></li>
+            <li><a href="publications.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Publications</a></li>
+            <li><a href="news.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">News</a></li>
+            <li><a href="awards.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Awards</a></li>
+            <li><a href="contact.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Contact</a></li>
+        </ul>
+    </nav>
+    <div class="container mx-auto pt-24 sm:pt-28 px-4 sm:px-6 md:px-8 z-10 relative flex-grow">
+        <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl sm:text-3xl font-bold font-playfair border-b-2 border-blue-500 drop-shadow-sm">News</h2>
+                <select id="filter-news" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base">
+                    <option value="all">All Categories</option>
+                    <option value="Publication">Publication</option>
+                    <option value="Conference">Conference</option>
+                    <option value="Award">Award</option>
+                    <option value="Event">Event</option>
+                    <option value="Media">Media</option>
+                </select>
+            </div>
+            <div id="news-list" class="space-y-6">
+                <!-- News Item 1: Times of India WordPress Mention -->
+                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Media">
+                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-newspaper text-blue-500"></i>
+                            <div>
+                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Featured in Times of India WordPress Blog</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>May 20, 2025 | <span class="category bg-purple-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Media</span></p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
+                    </div>
+                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
+                        <img src="https://via.placeholder.com/600x200?text=Times+of+India+Feature" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
+                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">My research on black hole jet dynamics was featured in a WordPress blog post by the Times of India, highlighting the impact of multi-wavelength observations in understanding active galactic nuclei.</p>
+                        <a href="https://example.com/times-of-india" target="_blank" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Read the Article</a>
+                    </div>
+                </div>
+                <!-- News Item 2 -->
+                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Publication">
+                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-book-open text-blue-500"></i>
+                            <div>
+                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">New Paper Published</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>May 15, 2025 | <span class="category bg-blue-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Publication</span></p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
+                    </div>
+                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
+                        <img src="https://via.placeholder.com/600x200?text=Black+Hole+Jet+Dynamics" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
+                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Published a new paper titled "Jet Dynamics in Supermassive Black Holes" in the <em>Monthly Notices of the Royal Astronomical Society</em>. The study explores the behavior of relativistic jets in active galactic nuclei using multi-wavelength observations.</p>
+                        <a href="publications.html" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Read the Paper</a>
+                    </div>
+                </div>
+                <!-- News Item 3 -->
+                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Conference">
+                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-microphone-alt text-blue-500"></i>
+                            <div>
+                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Conference Presentation</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>March 10, 2025 | <span class="category bg-green-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Conference</span></p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
+                    </div>
+                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
+                        <img src="https://via.placeholder.com/600x200?text=Astrophysics+Conference" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
+                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Presented research on high-energy astrophysics at the International Astrophysics Conference 2025. The talk focused on gamma-ray emissions from black hole binaries and their implications for theoretical models.</p>
+                        <a href="https://example.com/conference" target="_blank" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">View Conference Details</a>
+                    </div>
+                </div>
+                <!-- News Item 4 -->
+                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Award">
+                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-award text-blue-500"></i>
+                            <div>
+                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Received Young Scientist Award</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>January 20, 2025 | <span class="category bg-yellow-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Award</span></p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
+                    </div>
+                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
+                        <img src="https://via.placeholder.com/600x200?text=Young+Scientist+Award" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
+                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Honored with the Young Scientist Award 2025 by the International Astronomy Society for contributions to computational astrophysics and black hole research.</p>
+                        <a href="https://example.com/award" target="_blank" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Learn More</a>
+                    </div>
+                </div>
+                <!-- News Item 5 -->
+                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Publication">
+                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-book-open text-blue-500"></i>
+                            <div>
+                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Collaborative Paper on Black Hole Physics</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>November 5, 2024 | <span class="category bg-blue-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Publication</span></p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
+                    </div>
+                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
+                        <img src="https://via.placeholder.com/600x200?text=Black+Hole+Physics" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
+                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Co-authored a paper on the dynamics of accretion disks around supermassive black holes, published in <em>The Astrophysical Journal Letters</em>.</p>
+                        <a href="publications.html" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Read the Paper</a>
+                    </div>
+                </div>
+                <!-- News Item 6 -->
+                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Event">
+                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-chalkboard-teacher text-blue-500"></i>
+                            <div>
+                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Guest Lecture at University</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>September 12, 2024 | <span class="category bg-purple-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Event</span></p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
+                    </div>
+                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
+                        <img src="https://via.placeholder.com/600x200?text=Guest+Lecture" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
+                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Delivered a guest lecture on "The Role of Computational Astrophysics in Understanding Black Holes" at the University of Astronomy Studies.</p>
+                        <a href="https://example.com/lecture" target="_blank" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Watch the Lecture</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+    <button id="back-to-top" class="fixed bottom-6 right-6 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-opacity duration-300 opacity-0 z-20">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+    <footer class="bg-gray-800 dark:bg-gray-700 text-white text-center py-6 sm:py-8 z-10 relative">
+        <div class="container mx-auto px-4 sm:px-6 md:px-8">
+            <div class="flex justify-center space-x-4 mb-3">
+                <a href="https://twitter.com" class="hover:text-blue-400 transition-colors"><i class="fab fa-twitter fa-lg"></i></a>
+                <a href="https://linkedin.com" class="hover:text-blue-400 transition-colors"><i class="fab fa-linkedin fa-lg"></i></a>
+                <a href="https://github.com" class="hover:text-blue-400 transition-colors"><i class="fab fa-github fa-lg"></i></a>
+            </div>
+            <p class="font-roboto text-sm sm:text-base">© 2025 Souvik Manik. All Rights Reserved.</p>
+        </div>
+    </footer>
+    <script src="js/custom.js"></script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f3f4f6; /* Consistent light mode background */
+}
+.font-playfair {
+    font-family: 'Playfair Display', serif;
+}
+#starfield {
+    background: linear-gradient(to bottom, #020111 0%, #0a0e23 70%, #1b2735 100%);
+    background-size: cover;
+    overflow: hidden;
+    z-index: -1; /* Ensure stars are behind all content */
+}
+.star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle 3s infinite;
+}
+.star.small {
+    width: 1px;
+    height: 1px;
+    opacity: 0.7;
+}
+.star.medium {
+    width: 2px;
+    height: 2px;
+    opacity: 0.9;
+}
+.star.large {
+    width: 3px;
+    height: 3px;
+    opacity: 1;
+}
+.star.faint {
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    animation: twinkle 5s infinite;
+}
+@keyframes twinkle {
+    0% { opacity: 0.3; }
+    50% { opacity: 1; }
+    100% { opacity: 0.3; }
+}
+.overlay {
+    background: rgba(0, 0, 0, 0.1); /* Lighter overlay for better star visibility */
+    z-index: 0; /* Above starfield but below content */
+}
+.animate-fade-in {
+    animation: fadeIn 1s ease-in forwards;
+    opacity: 0;
+}
+.animate-fade-in:nth-child(1) { animation-delay: 0.1s; }
+.animate-fade-in:nth-child(2) { animation-delay: 0.2s; }
+.animate-fade-in:nth-child(3) { animation-delay: 0.3s; }
+.animate-fade-in:nth-child(4) { animation-delay: 0.4s; }
+.animate-fade-in:nth-child(5) { animation-delay: 0.5s; }
+.animate-fade-in:nth-child(6) { animation-delay: 0.6s; }
+.animation-delay-1 { animation-delay: 0.3s; }
+.animation-delay-2 { animation-delay: 0.6s; }
+.animation-delay-3 { animation-delay: 0.9s; }
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.drop-shadow-md {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.drop-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.shadow-glow {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.7);
+}
+/* News, Awards, Publications, Contact, and Index Page Styles */
+.news-card, .award-card, .publication-card, .contact-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.news-card:hover, .award-card:hover, .publication-card:hover, .contact-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+.news-header, .award-header, .publication-header {
+    transition: background-color 0.3s ease;
+}
+.news-header:hover, .award-header:hover, .publication-header:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+.toggle-icon {
+    transition: transform 0.3s ease;
+}
+.toggle-icon.open {
+    transform: rotate(180deg);
+}
+#back-to-top {
+    transition: opacity 0.3s ease;
+}
+#back-to-top:hover {
+    opacity: 0.9;
+}
+#sort-publications, #filter-news, #filter-awards, #filter-publications {
+    transition: background-color 0.3s ease;
+}
+.category, .type {
+    transition: transform 0.3s ease;
+}
