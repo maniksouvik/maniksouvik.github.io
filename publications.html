@@ -1,209 +1,672 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Publications - Souvik Manik</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <style>
+        :root {
+            --bg:        #0d0f14;
+            --surface:   #13161e;
+            --card:      #191d27;
+            --border:    rgba(255,255,255,0.07);
+            --border-hi: rgba(255,255,255,0.14);
+            --accent:    #5b8dee;
+            --accent2:   #a78bfa;
+            --text:      #e8eaf0;
+            --muted:     #7b82a0;
+            --dim:       #4a5070;
+            --green:     #34d399;
+            --purple:    #a78bfa;
+            --amber:     #fbbf24;
+            --nav-h:     64px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.6;
+        }
+
+        /* ── Star canvas ──────────────────────────────────────── */
+        #starfield {
+            position: fixed; inset: 0;
+            pointer-events: none; z-index: 0;
+        }
+
+        /* ── Navbar ───────────────────────────────────────────── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: var(--nav-h);
+            background: rgba(13,15,20,0.85);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center;
+            z-index: 100;
+        }
+        .nav-inner {
+            max-width: 1100px; margin: 0 auto;
+            width: 100%; padding: 0 2rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .nav-brand {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.25rem; color: var(--text);
+            text-decoration: none; letter-spacing: 0.01em;
+        }
+        .nav-brand span { color: var(--accent); }
+        nav ul {
+            display: flex; gap: 0.25rem;
+            list-style: none;
+        }
+        nav ul a {
+            color: var(--muted); font-size: 0.875rem; font-weight: 500;
+            text-decoration: none; padding: 6px 14px; border-radius: 6px;
+            transition: color .2s, background .2s;
+        }
+        nav ul a:hover, nav ul a.active {
+            color: var(--text);
+            background: rgba(255,255,255,0.06);
+        }
+        nav ul a.active { color: var(--accent); }
+
+        #menu-toggle {
+            display: none; background: none; border: none;
+            color: var(--text); cursor: pointer; padding: 4px;
+        }
+        #mobile-menu {
+            display: none; position: absolute; top: var(--nav-h);
+            left: 0; right: 0;
+            background: rgba(13,15,20,0.97);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem;
+        }
+        #mobile-menu.open { display: block; }
+        #mobile-menu li { list-style: none; }
+        #mobile-menu a {
+            display: block; padding: 10px 14px; border-radius: 8px;
+            color: var(--muted); font-size: 0.9rem; text-decoration: none;
+        }
+        #mobile-menu a:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+
+        /* ── Page layout ─────────────────────────────────────── */
+        main {
+            flex: 1;
+            max-width: 1100px; margin: 0 auto;
+            width: 100%; padding: calc(var(--nav-h) + 3rem) 2rem 4rem;
+            position: relative; z-index: 1;
+        }
+
+        /* ── Page header ─────────────────────────────────────── */
+        .page-header {
+            margin-bottom: 3rem;
+        }
+        .page-header-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem; font-weight: 500;
+            color: var(--accent); letter-spacing: 0.12em;
+            text-transform: uppercase; margin-bottom: 0.75rem;
+        }
+        .page-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: clamp(2rem, 5vw, 3.25rem);
+            line-height: 1.1; color: var(--text);
+            margin-bottom: 1rem;
+        }
+        .page-title em {
+            font-style: italic; color: var(--accent);
+        }
+        .page-desc {
+            color: var(--muted); font-size: 1rem; max-width: 560px;
+            font-weight: 300; line-height: 1.7;
+        }
+
+        /* ── Stats row ───────────────────────────────────────── */
+        .stats-row {
+            display: flex; gap: 1.5rem; flex-wrap: wrap;
+            margin-bottom: 2.5rem;
+        }
+        .stat-chip {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 10px; padding: 0.7rem 1.2rem;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .stat-chip .num {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem; color: var(--text); line-height: 1;
+        }
+        .stat-chip .lbl {
+            font-size: 0.78rem; color: var(--muted); font-weight: 500;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .stat-chip .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .dot-journal  { background: var(--accent); }
+        .dot-conf     { background: var(--purple); }
+        .dot-all      { background: var(--green); }
+
+        /* ── Controls ────────────────────────────────────────── */
+        .controls {
+            display: flex; gap: 0.75rem; flex-wrap: wrap;
+            align-items: center; margin-bottom: 2rem;
+        }
+        .ctrl-select {
+            appearance: none;
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--muted); font-family: 'DM Sans', sans-serif;
+            font-size: 0.85rem; font-weight: 500;
+            padding: 8px 36px 8px 14px; border-radius: 8px;
+            cursor: pointer; transition: border-color .2s, color .2s;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237b82a0' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+        .ctrl-select:hover, .ctrl-select:focus {
+            border-color: var(--border-hi); color: var(--text); outline: none;
+        }
+        .ctrl-select option { background: #1a1d26; }
+
+        /* ── Year group heading ──────────────────────────────── */
+        .year-group { margin-bottom: 2.5rem; }
+        .year-heading {
+            display: flex; align-items: center; gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+        .year-heading .yr {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.5rem; color: var(--text);
+        }
+        .year-heading .line {
+            flex: 1; height: 1px;
+            background: linear-gradient(to right, var(--border-hi), transparent);
+        }
+        .year-heading .count {
+            font-size: 0.75rem; color: var(--dim);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── Publication card ────────────────────────────────── */
+        .pub-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            transition: border-color .25s, transform .2s;
+        }
+        .pub-card:hover {
+            border-color: var(--border-hi);
+            transform: translateY(-1px);
+        }
+
+        .pub-header {
+            display: flex; align-items: flex-start;
+            gap: 1rem; padding: 1.25rem 1.5rem;
+        }
+
+        .pub-left { flex: 1; min-width: 0; }
+
+        .pub-badges {
+            display: flex; gap: 6px; flex-wrap: wrap;
+            margin-bottom: 0.6rem;
+        }
+        .badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.67rem; font-weight: 500;
+            padding: 2px 9px; border-radius: 4px;
+            letter-spacing: 0.06em; text-transform: uppercase;
+        }
+        .badge-journal  { background: rgba(91,141,238,0.15); color: var(--accent); border: 1px solid rgba(91,141,238,0.25); }
+        .badge-conf     { background: rgba(167,139,250,0.15); color: var(--purple); border: 1px solid rgba(167,139,250,0.25); }
+        .badge-year     { background: rgba(255,255,255,0.05); color: var(--dim); border: 1px solid var(--border); }
+
+        .pub-title {
+            font-size: 1rem; font-weight: 600;
+            color: var(--text); line-height: 1.45;
+            margin-bottom: 0.4rem;
+        }
+        .pub-authors {
+            font-size: 0.83rem; color: var(--muted);
+            font-weight: 400;
+        }
+        .pub-authors strong { color: var(--text); font-weight: 500; }
+
+        /* ── Venue & links (flat, no accordion) ──────────────── */
+        .pub-venue {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem; color: var(--accent);
+            margin-top: 0.35rem;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .pub-venue::before {
+            content: ''; display: block;
+            width: 3px; height: 12px;
+            background: var(--accent); border-radius: 2px; flex-shrink: 0;
+        }
+
+        .pub-links {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-top: 0.65rem;
+        }
+        .pub-link {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 0.78rem; font-weight: 500;
+            padding: 4px 12px; border-radius: 6px; text-decoration: none;
+            border: 1px solid var(--border); color: var(--muted);
+            transition: background .2s, color .2s, border-color .2s;
+        }
+        .pub-link:hover { background: rgba(255,255,255,0.06); color: var(--text); border-color: var(--border-hi); }
+        .pub-link.doi  { border-color: rgba(91,141,238,0.3); color: var(--accent); }
+        .pub-link.doi:hover  { background: rgba(91,141,238,0.1); }
+        .pub-link.pdf  { border-color: rgba(251,191,36,0.3); color: var(--amber); }
+        .pub-link.pdf:hover  { background: rgba(251,191,36,0.08); }
+        .pub-link.code { border-color: rgba(52,211,153,0.3); color: var(--green); }
+        .pub-link.code:hover { background: rgba(52,211,153,0.08); }
+
+        /* ── Empty state ─────────────────────────────────────── */
+        .empty-state {
+            text-align: center; padding: 4rem 2rem;
+            color: var(--dim);
+        }
+        .empty-state i { font-size: 2rem; margin-bottom: 1rem; display: block; }
+        .empty-state p { font-size: 0.9rem; }
+
+        /* ── Back to top ─────────────────────────────────────── */
+        #back-to-top {
+            position: fixed; bottom: 2rem; right: 2rem;
+            width: 44px; height: 44px; border-radius: 12px;
+            background: var(--accent); color: #fff; border: none;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            opacity: 0; transform: translateY(8px);
+            transition: opacity .3s, transform .3s;
+            z-index: 50; font-size: 0.9rem;
+            box-shadow: 0 4px 20px rgba(91,141,238,0.35);
+        }
+        #back-to-top.visible { opacity: 1; transform: translateY(0); }
+
+        /* ── Footer ──────────────────────────────────────────── */
+        footer {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 2rem; text-align: center;
+            position: relative; z-index: 1;
+        }
+        .footer-socials {
+            display: flex; justify-content: center; gap: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .footer-socials a {
+            color: var(--dim); font-size: 1.1rem;
+            transition: color .2s;
+        }
+        .footer-socials a:hover { color: var(--accent); }
+        footer p {
+            font-size: 0.8rem; color: var(--dim); font-weight: 400;
+        }
+        footer p a { color: var(--muted); text-decoration: none; }
+        footer p a:hover { color: var(--accent); }
+
+        /* ── Fade-in animation ───────────────────────────────── */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .pub-card {
+            animation: fadeUp .35s ease both;
+        }
+
+        /* ── Responsive ──────────────────────────────────────── */
+        @media (max-width: 700px) {
+            main { padding-left: 1rem; padding-right: 1rem; }
+            #menu-toggle { display: flex; }
+            nav ul { display: none; }
+            .pub-header { padding: 1rem; }
+            .pub-body-inner { padding: 1rem; }
+        }
+    </style>
 </head>
-<body class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 flex flex-col">
-    <div id="starfield" class="fixed inset-0 pointer-events-none"></div>
-    <div class="overlay fixed inset-0 pointer-events-none"></div>
-    <nav class="bg-gray-800 dark:bg-gray-700 text-white fixed w-full top-0 z-30 shadow-md h-16 flex items-center">
-        <div class="container mx-auto flex justify-between items-center px-4 sm:px-6 md:px-8">
-            <a class="text-lg sm:text-xl font-bold font-playfair" href="index.html">Souvik Manik</a>
-            <button id="menu-toggle" class="md:hidden focus:outline-none">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
-                </svg>
-            </button>
-            <ul id="nav-menu" class="hidden md:flex space-x-4 font-roboto">
-                <li><a href="index.html" class="hover:text-blue-400 transition-colors">Home</a></li>
-                <li><a href="publications.html" class="hover:text-blue-400 transition-colors">Publications</a></li>
-                <li><a href="news.html" class="hover:text-blue-400 transition-colors">News</a></li>
-                <li><a href="awards.html" class="hover:text-blue-400 transition-colors">Awards</a></li>
-                <li><a href="contact.html" class="hover:text-blue-400 transition-colors">Contact</a></li>
-            </ul>
-        </div>
-        <ul id="mobile-menu" class="hidden md:hidden bg-gray-800 dark:bg-gray-700 w-full font-roboto absolute top-16 left-0">
-            <li><a href="index.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Home</a></li>
-            <li><a href="publications.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Publications</a></li>
-            <li><a href="news.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">News</a></li>
-            <li><a href="awards.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Awards</a></li>
-            <li><a href="contact.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Contact</a></li>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<nav>
+    <div class="nav-inner">
+        <a class="nav-brand" href="index.html">Souvik <span>Manik</span></a>
+        <button id="menu-toggle" aria-label="Toggle menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="publications.html" class="active">Publications</a></li>
+            <li><a href="news.html">News</a></li>
+            <li><a href="awards.html">Awards</a></li>
+            <li><a href="contact.html">Contact</a></li>
         </ul>
-    </nav>
-    <div class="container mx-auto pt-24 sm:pt-28 px-4 sm:px-6 md:px-8 z-10 relative flex-grow">
-        <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
-                <h2 class="text-2xl sm:text-3xl font-bold font-playfair border-b-2 border-blue-500 drop-shadow-sm">Publications</h2>
-                <div class="flex space-x-4">
-                    <select id="filter-publications" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base">
-                        <option value="all">All Types</option>
-                        <option value="Journal">Journal</option>
-                        <option value="Conference Paper">Conference Paper</option>
-                    </select>
-                    <select id="sort-publications" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base">
-                        <option value="year-newest">Sort by Year (Newest)</option>
-                        <option value="year-oldest">Sort by Year (Oldest)</option>
-                        <option value="journal">Sort by Journal (A-Z)</option>
-                    </select>
-                </div>
-            </div>
-            <div id="publications-list" class="space-y-6">
-                <!-- Publication 1 -->
-                <div class="publication-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-year="2025" data-type="Journal" data-journal="Nature Astronomy">
-                    <div class="publication-header p-4 cursor-pointer flex justify-between items-center" onclick="togglePublication(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-book text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Relativistic Jets in AGN: A New Perspective</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Manik, S., & Bose, T. | 2025 | <span class="type bg-green-500 text-white px-2 py-1 rounded-full text-xs">Journal</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="publication-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Relativistic+Jets" alt="Publication Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base"><strong>Journal:</strong> Nature Astronomy, 9(3), 123-135</p>
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base mt-2"><strong>Abstract:</strong> This study provides a new perspective on the formation and evolution of relativistic jets in active galactic nuclei, using advanced numerical simulations and multi-wavelength data.</p>
-                        <a href="https://doi.org/10.1038/s41550-025-12345-6" target="_blank" class="text-blue-500 hover:underline hover:text-blue-600 transition-colors mt-2 inline-block text-sm sm:text-base">DOI Link</a>
-                    </div>
-                </div>
-                <!-- Publication 2 -->
-                <div class="publication-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-year="2024" data-type="Journal" data-journal="The Astrophysical Journal">
-                    <div class="publication-header p-4 cursor-pointer flex justify-between items-center" onclick="togglePublication(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-book text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Multi-Wavelength Analysis of Active Galactic Nuclei</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Manik, S., & Gupta, R. | 2024 | <span class="type bg-green-500 text-white px-2 py-1 rounded-full text-xs">Journal</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="publication-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Active+Galactic+Nuclei" alt="Publication Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base"><strong>Journal:</strong> The Astrophysical Journal, 923(1), 45-60</p>
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base mt-2"><strong>Abstract:</strong> This study presents a comprehensive multi-wavelength analysis of active galactic nuclei (AGN), focusing on their spectral energy distributions and variability. We combine data from radio, optical, and X-ray observations to model the physical processes driving AGN activity.</p>
-                        <a href="https://doi.org/10.3847/1538-4357/ac2b3d" target="_blank" class="text-blue-500 hover:underline hover:text-blue-600 transition-colors mt-2 inline-block text-sm sm:text-base">DOI Link</a>
-                    </div>
-                </div>
-                <!-- Publication 3 -->
-                <div class="publication-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-year="2023" data-type="Journal" data-journal="Monthly Notices of the Royal Astronomical Society">
-                    <div class="publication-header p-4 cursor-pointer flex justify-between items-center" onclick="togglePublication(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-book text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Jet Dynamics in Supermassive Black Holes</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Manik, S. | 2023 | <span class="type bg-green-500 text-white px-2 py-1 rounded-full text-xs">Journal</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="publication-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Jet+Dynamics" alt="Publication Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base"><strong>Journal:</strong> Monthly Notices of the Royal Astronomical Society, 512(3), 1234-1245</p>
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base mt-2"><strong>Abstract:</strong> We investigate the dynamics of relativistic jets in supermassive black holes using numerical simulations and observational data. Our findings suggest a strong correlation between jet morphology and accretion disk properties.</p>
-                        <a href="https://doi.org/10.1093/mnras/stac1234" target="_blank" class="text-blue-500 hover:underline hover:text-blue-600 transition-colors mt-2 inline-block text-sm sm:text-base">DOI Link</a>
-                    </div>
-                </div>
-                <!-- Publication 4 -->
-                <div class="publication-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-year="2022" data-type="Conference Paper" data-journal="Proceedings of the International Astrophysics Conference">
-                    <div class="publication-header p-4 cursor-pointer flex justify-between items-center" onclick="togglePublication(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-book text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">High-Energy Emissions from Black Hole Binaries</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Manik, S., & Sharma, A. | 2022 | <span class="type bg-purple-500 text-white px-2 py-1 rounded-full text-xs">Conference Paper</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="publication-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Black+Hole+Binaries" alt="Publication Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base"><strong>Published In:</strong> Proceedings of the International Astrophysics Conference 2022</p>
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base mt-2"><strong>Abstract:</strong> This paper examines high-energy gamma-ray emissions from black hole binaries, using data from the Fermi-LAT telescope. We propose a new model for particle acceleration in these systems.</p>
-                        <a href="https://doi.org/10.1051/0004-6361/202243789" target="_blank" class="text-blue-500 hover:underline hover:text-blue-600 transition-colors mt-2 inline-block text-sm sm:text-base">DOI Link</a>
-                    </div>
-                </div>
-                <!-- Publication 5 -->
-                <div class="publication-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-year="2021" data-type="Journal" data-journal="The Astrophysical Journal Letters">
-                    <div class="publication-header p-4 cursor-pointer flex justify-between items-center" onclick="togglePublication(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-book text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Accretion Disk Dynamics in AGN</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Manik, S., & Kumar, P. | 2021 | <span class="type bg-green-500 text-white px-2 py-1 rounded-full text-xs">Journal</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="publication-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Accretion+Disk+Dynamics" alt="Publication Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base"><strong>Journal:</strong> The Astrophysical Journal Letters, 890(2), L12</p>
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base mt-2"><strong>Abstract:</strong> We explore the dynamics of accretion disks in active galactic nuclei (AGN) using a combination of analytical models and numerical simulations, focusing on disk instabilities.</p>
-                        <a href="https://doi.org/10.3847/2041-8213/abcd12" target="_blank" class="text-blue-500 hover:underline hover:text-blue-600 transition-colors mt-2 inline-block text-sm sm:text-base">DOI Link</a>
-                    </div>
-                </div>
-            </div>
-        </section>
     </div>
-    <button id="back-to-top" class="fixed bottom-6 right-6 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-opacity duration-300 opacity-0 z-20">
-        <i class="fas fa-arrow-up"></i>
-    </button>
-    <footer class="bg-gray-800 dark:bg-gray-700 text-white text-center py-6 sm:py-8 z-10 relative">
-        <div class="container mx-auto px-4 sm:px-6 md:px-8">
-            <div class="flex justify-center space-x-4 mb-3">
-                <a href="https://twitter.com" class="hover:text-blue-400 transition-colors"><i class="fab fa-twitter fa-lg"></i></a>
-                <a href="https://linkedin.com" class="hover:text-blue-400 transition-colors"><i class="fab fa-linkedin fa-lg"></i></a>
-                <a href="https://github.com" class="hover:text-blue-400 transition-colors"><i class="fab fa-github fa-lg"></i></a>
+    <ul id="mobile-menu">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="publications.html">Publications</a></li>
+        <li><a href="news.html">News</a></li>
+        <li><a href="awards.html">Awards</a></li>
+        <li><a href="contact.html">Contact</a></li>
+    </ul>
+</nav>
+
+<main>
+    <div class="page-header">
+        <div class="page-header-label">Research Output</div>
+        <h1 class="page-title">My <em>Publications</em></h1>
+        <p class="page-desc">Peer-reviewed articles, book chapters, and conference proceedings on radio astronomy, AGN, and galaxy evolution.</p>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat-chip">
+            <div class="dot dot-all"></div>
+            <div>
+                <div class="num" id="stat-total">8</div>
+                <div class="lbl">Total</div>
             </div>
-            <p class="font-roboto text-sm sm:text-base">© 2025 Souvik Manik. All Rights Reserved.</p>
         </div>
-    </footer>
-    <script src="js/custom.js"></script>
+        <div class="stat-chip">
+            <div class="dot dot-journal"></div>
+            <div>
+                <div class="num" id="stat-journal">8</div>
+                <div class="lbl">Journal Articles</div>
+            </div>
+        </div>
+        <div class="stat-chip">
+            <div class="dot dot-conf"></div>
+            <div>
+                <div class="num" id="stat-conf">0</div>
+                <div class="lbl">Conference Papers</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <select class="ctrl-select" id="filter-publications">
+            <option value="all">All Types</option>
+            <option value="Journal">Journal Articles</option>
+            <option value="Conference Paper">Conference Papers</option>
+        </select>
+        <select class="ctrl-select" id="sort-publications">
+            <option value="year-newest">Newest First</option>
+            <option value="year-oldest">Oldest First</option>
+            <option value="journal">Journal A–Z</option>
+        </select>
+    </div>
+
+    <div id="publications-list"></div>
+</main>
+
+<button id="back-to-top" aria-label="Back to top">
+    <i class="fas fa-arrow-up"></i>
+</button>
+
+<footer>
+    <div class="footer-socials">
+        <a href="https://twitter.com"  target="_blank" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+        <a href="https://linkedin.com" target="_blank" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
+        <a href="https://github.com"   target="_blank" aria-label="GitHub"><i class="fab fa-github"></i></a>
+    </div>
+    <p>© 2026 <a href="index.html">Souvik Manik</a>. All rights reserved.</p>
+</footer>
+
+<script>
+// ── Star field ──────────────────────────────────────────────────────────────
+(function(){
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+    function resize(){
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    function init(){
+        resize();
+        stars = Array.from({length: 120}, () => ({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            r: Math.random() * 1.2 + 0.2,
+            o: Math.random() * 0.5 + 0.1,
+            speed: Math.random() * 0.015 + 0.005
+        }));
+    }
+    function draw(){
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        stars.forEach(s => {
+            s.o += s.speed;
+            if(s.o > 0.7) s.speed = -Math.abs(s.speed);
+            if(s.o < 0.05) s.speed = Math.abs(s.speed);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(180,190,220,${s.o})`;
+            ctx.fill();
+        });
+        requestAnimationFrame(draw);
+    }
+    window.addEventListener('resize', init);
+    init(); draw();
+})();
+
+// ── Publication data ────────────────────────────────────────────────────────
+const publications = [
+    {
+        year: 2026,
+        type: `Journal`,
+        journal: `Monthly Notices of the Royal Astronomical Society`,
+        title: `Rad@home Discovery of a Bow-and-Arrow Radio Galaxy Tracing a ~560 kpc Bow-Shock Structure in a Multi-Halo Environment`,
+        authors: `Hota, A., Dabhade, P., Ghosh, S., Limbo, P., Konar, C., Sethi, S., Manik, S., et al.`,
+        venue: `MNRAS, In Press, 2026`,
+        doi: ``,
+        url: ``,
+        pdf: ``,
+        code: ``,
+    },
+    {
+        year: 2026,
+        type: `Journal`,
+        journal: `The Astrophysical Journal`,
+        title: `Hybrid Morphology Radio Sources from the MeerKAT Absorption Line Survey (MALS): Radio, Mid-infrared, and Environmental Characteristics`,
+        authors: `Manik, S., Kumari, S., Bhukta, N., Pal, S., and Mondal, S. K.`,
+        venue: `The Astrophysical Journal, 997(2), 157`,
+        doi: `10.3847/1538-4357/ae1f85`,
+        url: ``,
+        pdf: ``,
+        code: ``,
+    },
+    {
+        year: 2025,
+        type: `Journal`,
+        journal: `The Astrophysical Journal`,
+        title: `Circular Mystery: Exploring Diffuse Emission Surrounding a Radio Galaxy with uGMRT and VLA Multiwavelength Observations`,
+        authors: `Kumari, S., Pal, S., and Manik, S.`,
+        venue: `The Astrophysical Journal, 987(1), 10`,
+        doi: `10.3847/1538-4357/add69d`,
+        url: ``,
+        pdf: ``,
+        code: ``,
+    },
+    {
+        year: 2025,
+        type: `Journal`,
+        journal: `The Astrophysical Journal Supplement Series`,
+        title: `Unveiling New Giant Radio Quasars from the TGSS Sky and Their Large-scale Environment`,
+        authors: `Manik, S., Bhukta, N., Pal, S., and Mondal, S. K.`,
+        venue: `The Astrophysical Journal Supplement Series, 281(2), 34`,
+        doi: `10.3847/1538-4365/ae0b52`,
+        url: ``,
+        pdf: ``,
+        code: ``,
+    },
+    {
+        year: 2024,
+        type: `Journal`,
+        journal: `The Astrophysical Journal Supplement Series`,
+        title: `Discovery of Giant Radio Sources from TGSS ADR 1: Radio, Optical, and Infrared Properties`,
+        authors: `Bhukta, N., Manik, S., Pal, S., and Mondal, S. K.`,
+        venue: `The Astrophysical Journal Supplement Series, 273, 2`,
+        doi: `10.3847/1538-4365/ad5184`,
+        url: ``,
+        pdf: ``,
+        code: ``,
+    },
+    {
+        year: 2022,
+        type: `Journal`,
+        journal: `Environment, Development and Sustainability`,
+        title: `Impact of Air Pollutants on COVID-19 Transmission: A Study over Different Metropolitan Cities in India`,
+        authors: `Manik, S., Mandal, M., and Pal, S.`,
+        venue: `Environment, Development and Sustainability, pp. 1–13`,
+        doi: `10.1007/s10668-022-02593-z`,
+        url: ``,
+        pdf: ``,
+        code: ``,
+    },
+    {
+        year: 2022,
+        type: `Journal`,
+        journal: `Environmental Research`,
+        title: `Impact of Climate on COVID-19 Transmission: A Study over Indian States`,
+        authors: `Manik, S., Mandal, M., Pal, S., Patra, S., and Acharya, S.`,
+        venue: `Environmental Research, 211, 113110`,
+        doi: `10.1016/j.envres.2022.113110`,
+        url: ``,
+        pdf: ``,
+        code: ``,
+    },
+    {
+        year: 2022,
+        type: `Journal`,
+        journal: `Nonlinear Dynamics`,
+        title: `Effect of 2021 Assembly Election in India on COVID-19 Transmission`,
+        authors: `Manik, S., Pal, S., Mandal, M., and Hazra, M.`,
+        venue: `Nonlinear Dynamics, 107(1), 1343–1356`,
+        doi: `10.1007/s11071-021-07041-7`,
+        url: ``,
+        pdf: ``,
+        code: ``,
+    },
+];
+
+// ── Render ──────────────────────────────────────────────────────────────────
+function renderPublications() {
+    const filterVal = document.getElementById('filter-publications').value;
+    const sortVal   = document.getElementById('sort-publications').value;
+    const container = document.getElementById('publications-list');
+
+    let pubs = publications.filter(p => filterVal === 'all' || p.type === filterVal);
+
+    pubs.sort((a, b) => {
+        if (sortVal === 'year-newest') return b.year - a.year;
+        if (sortVal === 'year-oldest') return a.year - b.year;
+        if (sortVal === 'journal')     return a.journal.localeCompare(b.journal);
+        return 0;
+    });
+
+    // Update stats
+    document.getElementById('stat-total').textContent   = publications.length;
+    document.getElementById('stat-journal').textContent = publications.filter(p => p.type === 'Journal').length;
+    document.getElementById('stat-conf').textContent    = publications.filter(p => p.type === 'Conference Paper').length;
+
+    if (!pubs.length) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-satellite-dish"></i><p>No publications found for this filter.</p></div>`;
+        return;
+    }
+
+    // Group by year (if sorted by year)
+    const byYear = sortVal !== 'journal';
+    let html = '';
+
+    if (byYear) {
+        const groups = {};
+        pubs.forEach(p => {
+            if (!groups[p.year]) groups[p.year] = [];
+            groups[p.year].push(p);
+        });
+        const years = Object.keys(groups).sort((a,b) => sortVal === 'year-oldest' ? a-b : b-a);
+        years.forEach(yr => {
+            html += `<div class="year-group">
+                <div class="year-heading">
+                    <span class="yr">${yr}</span>
+                    <div class="line"></div>
+                    <span class="count">${groups[yr].length} paper${groups[yr].length > 1 ? 's' : ''}</span>
+                </div>
+                ${groups[yr].map(cardHTML).join('')}
+            </div>`;
+        });
+    } else {
+        html = pubs.map(cardHTML).join('');
+    }
+
+    container.innerHTML = html;
+}
+
+function cardHTML(p, i) {
+    const badgeCls = p.type === 'Journal' ? 'badge-journal' : 'badge-conf';
+    const animDelay = `animation-delay: ${i * 60}ms`;
+
+    // Build link buttons
+    let links = '';
+    if (p.doi)  links += `<a class="pub-link doi"  href="https://doi.org/${p.doi}" target="_blank"><i class="fas fa-external-link-alt" style="font-size:0.65rem"></i> DOI</a>`;
+    if (p.url && !p.doi) links += `<a class="pub-link doi" href="${p.url}" target="_blank"><i class="fas fa-external-link-alt" style="font-size:0.65rem"></i> Link</a>`;
+    if (p.pdf)  links += `<a class="pub-link pdf"  href="${p.pdf}" target="_blank"><i class="fas fa-file-pdf" style="font-size:0.65rem"></i> PDF</a>`;
+    if (p.code) links += `<a class="pub-link code" href="${p.code}" target="_blank"><i class="fab fa-github" style="font-size:0.65rem"></i> Code</a>`;
+
+    return `
+    <div class="pub-card" style="${animDelay}">
+        <div class="pub-header">
+            <div class="pub-left">
+                <div class="pub-badges">
+                    <span class="badge ${badgeCls}">${p.type}</span>
+                    <span class="badge badge-year">${p.year}</span>
+                </div>
+                <div class="pub-title">${p.title}</div>
+                <div class="pub-authors">${highlightAuthor(p.authors)}</div>
+                ${p.venue ? `<div class="pub-venue">${p.venue}</div>` : ''}
+                ${links ? `<div class="pub-links">${links}</div>` : ''}
+            </div>
+        </div>
+    </div>`;
+}
+
+function highlightAuthor(authors) {
+    return authors.replace(/Manik[^,]*/g, '<strong>$&</strong>');
+}
+
+// ── Controls ─────────────────────────────────────────────────────────────────
+document.getElementById('filter-publications').addEventListener('change', renderPublications);
+document.getElementById('sort-publications').addEventListener('change', renderPublications);
+
+// ── Mobile menu ──────────────────────────────────────────────────────────────
+document.getElementById('menu-toggle').addEventListener('click', () => {
+    document.getElementById('mobile-menu').classList.toggle('open');
+});
+
+// ── Back to top ──────────────────────────────────────────────────────────────
+const btn = document.getElementById('back-to-top');
+window.addEventListener('scroll', () => {
+    btn.classList.toggle('visible', window.scrollY > 300);
+});
+btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderPublications();
+</script>
 </body>
 </html>

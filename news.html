@@ -1,218 +1,305 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>News - Souvik Manik</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <style>
+        :root {
+            --bg:        #0d0f14;
+            --surface:   #13161e;
+            --card:      #191d27;
+            --border:    rgba(255,255,255,0.07);
+            --border-hi: rgba(255,255,255,0.14);
+            --accent:    #5b8dee;
+            --text:      #e8eaf0;
+            --muted:     #7b82a0;
+            --dim:       #4a5070;
+            --green:     #34d399;
+            --amber:     #fbbf24;
+            --purple:    #a78bfa;
+            --coral:     #f87171;
+            --nav-h:     64px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg); color: var(--text);
+            min-height: 100vh; display: flex; flex-direction: column; line-height: 1.6;
+        }
+        #starfield { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+        /* NAV */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+            background: rgba(13,15,20,0.85); backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border); display: flex; align-items: center; z-index: 100;
+        }
+        .nav-inner {
+            max-width: 1100px; margin: 0 auto; width: 100%; padding: 0 2rem;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .nav-brand { font-family: 'DM Serif Display', serif; font-size: 1.25rem; color: var(--text); text-decoration: none; }
+        .nav-brand span { color: var(--accent); }
+        nav ul { display: flex; gap: 0.25rem; list-style: none; }
+        nav ul a { color: var(--muted); font-size: 0.875rem; font-weight: 500; text-decoration: none; padding: 6px 14px; border-radius: 6px; transition: color .2s, background .2s; }
+        nav ul a:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+        nav ul a.active { color: var(--accent); }
+        #menu-toggle { display: none; background: none; border: none; color: var(--text); cursor: pointer; padding: 4px; }
+        #mobile-menu { display: none; position: absolute; top: var(--nav-h); left: 0; right: 0; background: rgba(13,15,20,0.97); border-bottom: 1px solid var(--border); padding: 1rem; }
+        #mobile-menu.open { display: block; }
+        #mobile-menu li { list-style: none; }
+        #mobile-menu a { display: block; padding: 10px 14px; border-radius: 8px; color: var(--muted); font-size: 0.9rem; text-decoration: none; }
+        #mobile-menu a:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+
+        /* LAYOUT */
+        main {
+            flex: 1; max-width: 1100px; margin: 0 auto; width: 100%;
+            padding: calc(var(--nav-h) + 3rem) 2rem 4rem; position: relative; z-index: 1;
+        }
+        .page-header { margin-bottom: 3rem; }
+        .page-header-label { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 500; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.75rem; }
+        .page-title { font-family: 'DM Serif Display', serif; font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.1; color: var(--text); margin-bottom: 1rem; }
+        .page-title em { font-style: italic; color: var(--accent); }
+        .page-desc { color: var(--muted); font-size: 1rem; max-width: 560px; font-weight: 300; line-height: 1.7; }
+
+        /* TIMELINE */
+        .timeline { position: relative; padding-left: 2rem; }
+        .timeline::before {
+            content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px;
+            background: linear-gradient(to bottom, var(--accent), transparent);
+        }
+        .news-item {
+            position: relative; margin-bottom: 2rem;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 14px; padding: 1.5rem;
+            transition: border-color .25s, transform .2s;
+            animation: fadeUp .4s ease both;
+        }
+        .news-item:hover { border-color: var(--border-hi); transform: translateX(4px); }
+        .news-item::before {
+            content: ''; position: absolute; left: -2.5rem; top: 1.6rem;
+            width: 10px; height: 10px; border-radius: 50%;
+            background: var(--accent); border: 2px solid var(--bg);
+            box-shadow: 0 0 0 3px rgba(91,141,238,0.2);
+        }
+
+        .news-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 0.7rem; flex-wrap: wrap; }
+        .news-date { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--dim); }
+        .news-tag {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.67rem; font-weight: 500;
+            padding: 2px 9px; border-radius: 4px; letter-spacing: 0.05em; text-transform: uppercase;
+        }
+        .tag-pub    { background: rgba(91,141,238,0.12); color: var(--accent); border: 1px solid rgba(91,141,238,0.22); }
+        .tag-award  { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.22); }
+        .tag-talk   { background: rgba(167,139,250,0.12); color: var(--purple); border: 1px solid rgba(167,139,250,0.22); }
+        .tag-media  { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.22); }
+        .tag-travel { background: rgba(248,113,113,0.12); color: var(--coral); border: 1px solid rgba(248,113,113,0.22); }
+
+        .news-title { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 0.4rem; line-height: 1.45; }
+        .news-body  { font-size: 0.875rem; color: var(--muted); line-height: 1.7; font-weight: 300; }
+        .news-link  { display: inline-flex; align-items: center; gap: 5px; margin-top: 0.75rem; font-size: 0.8rem; color: var(--accent); text-decoration: none; font-weight: 500; transition: gap .2s; }
+        .news-link:hover { gap: 8px; }
+
+        /* YEAR DIVIDER */
+        .year-divider { display: flex; align-items: center; gap: 1rem; margin: 2.5rem 0 1.5rem; }
+        .year-divider .yr { font-family: 'DM Serif Display', serif; font-size: 1.3rem; color: var(--text); }
+        .year-divider .line { flex: 1; height: 1px; background: linear-gradient(to right, var(--border-hi), transparent); }
+
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* BACK TO TOP */
+        #back-to-top { position: fixed; bottom: 2rem; right: 2rem; width: 44px; height: 44px; border-radius: 12px; background: var(--accent); color: #fff; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s; z-index: 50; box-shadow: 0 4px 20px rgba(91,141,238,0.35); }
+        #back-to-top.visible { opacity: 1; transform: translateY(0); }
+
+        /* FOOTER */
+        footer { background: var(--surface); border-top: 1px solid var(--border); padding: 2rem; text-align: center; position: relative; z-index: 1; }
+        .footer-socials { display: flex; justify-content: center; gap: 1.25rem; margin-bottom: 1rem; }
+        .footer-socials a { color: var(--dim); font-size: 1.1rem; transition: color .2s; }
+        .footer-socials a:hover { color: var(--accent); }
+        footer p { font-size: 0.8rem; color: var(--dim); }
+        footer p a { color: var(--muted); text-decoration: none; }
+        footer p a:hover { color: var(--accent); }
+
+        @media (max-width: 700px) {
+            main { padding-left: 1rem; padding-right: 1rem; }
+            #menu-toggle { display: flex; }
+            nav ul { display: none; }
+            .timeline { padding-left: 1.5rem; }
+        }
+    </style>
 </head>
-<body class="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 flex flex-col">
-    <div id="starfield" class="fixed inset-0 pointer-events-none"></div>
-    <div class="overlay fixed inset-0 pointer-events-none"></div>
-    <nav class="bg-gray-800 dark:bg-gray-700 text-white fixed w-full top-0 z-30 shadow-md h-16 flex items-center">
-        <div class="container mx-auto flex justify-between items-center px-4 sm:px-6 md:px-8">
-            <a class="text-lg sm:text-xl font-bold font-playfair" href="index.html">Souvik Manik</a>
-            <button id="menu-toggle" class="md:hidden focus:outline-none">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
-                </svg>
-            </button>
-            <ul id="nav-menu" class="hidden md:flex space-x-4 font-roboto">
-                <li><a href="index.html" class="hover:text-blue-400 transition-colors">Home</a></li>
-                <li><a href="publications.html" class="hover:text-blue-400 transition-colors">Publications</a></li>
-                <li><a href="news.html" class="hover:text-blue-400 transition-colors">News</a></li>
-                <li><a href="awards.html" class="hover:text-blue-400 transition-colors">Awards</a></li>
-                <li><a href="contact.html" class="hover:text-blue-400 transition-colors">Contact</a></li>
-            </ul>
-        </div>
-        <ul id="mobile-menu" class="hidden md:hidden bg-gray-800 dark:bg-gray-700 w-full font-roboto absolute top-16 left-0">
-            <li><a href="index.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Home</a></li>
-            <li><a href="publications.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Publications</a></li>
-            <li><a href="news.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">News</a></li>
-            <li><a href="awards.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Awards</a></li>
-            <li><a href="contact.html" class="block py-2 px-4 hover:text-blue-400 transition-colors">Contact</a></li>
+<body>
+<canvas id="starfield"></canvas>
+<nav>
+    <div class="nav-inner">
+        <a class="nav-brand" href="index.html">Souvik <span>Manik</span></a>
+        <button id="menu-toggle" aria-label="Toggle menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="publications.html">Publications</a></li>
+            <li><a href="news.html" class="active">News</a></li>
+            <li><a href="awards.html">Awards</a></li>
+            <li><a href="contact.html">Contact</a></li>
         </ul>
-    </nav>
-    <div class="container mx-auto pt-24 sm:pt-28 px-4 sm:px-6 md:px-8 z-10 relative flex-grow">
-        <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl sm:text-3xl font-bold font-playfair border-b-2 border-blue-500 drop-shadow-sm">News</h2>
-                <select id="filter-news" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base">
-                    <option value="all">All Categories</option>
-                    <option value="Publication">Publication</option>
-                    <option value="Conference">Conference</option>
-                    <option value="Award">Award</option>
-                    <option value="Event">Event</option>
-                    <option value="Media">Media</option>
-                </select>
-            </div>
-            <div id="news-list" class="space-y-6">
-                <!-- News Item 1: Times of India WordPress Mention -->
-                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Media">
-                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-newspaper text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Featured in Times of India WordPress Blog</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>May 20, 2025 | <span class="category bg-purple-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Media</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Times+of+India+Feature" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">My research on black hole jet dynamics was featured in a WordPress blog post by the Times of India, highlighting the impact of multi-wavelength observations in understanding active galactic nuclei.</p>
-                        <a href="https://example.com/times-of-india" target="_blank" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Read the Article</a>
-                    </div>
-                </div>
-                <!-- News Item 2 -->
-                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Publication">
-                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-book-open text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">New Paper Published</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>May 15, 2025 | <span class="category bg-blue-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Publication</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Black+Hole+Jet+Dynamics" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Published a new paper titled "Jet Dynamics in Supermassive Black Holes" in the <em>Monthly Notices of the Royal Astronomical Society</em>. The study explores the behavior of relativistic jets in active galactic nuclei using multi-wavelength observations.</p>
-                        <a href="publications.html" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Read the Paper</a>
-                    </div>
-                </div>
-                <!-- News Item 3 -->
-                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Conference">
-                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-microphone-alt text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Conference Presentation</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>March 10, 2025 | <span class="category bg-green-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Conference</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Astrophysics+Conference" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Presented research on high-energy astrophysics at the International Astrophysics Conference 2025. The talk focused on gamma-ray emissions from black hole binaries and their implications for theoretical models.</p>
-                        <a href="https://example.com/conference" target="_blank" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">View Conference Details</a>
-                    </div>
-                </div>
-                <!-- News Item 4 -->
-                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Award">
-                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-award text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Received Young Scientist Award</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>January 20, 2025 | <span class="category bg-yellow-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Award</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Young+Scientist+Award" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Honored with the Young Scientist Award 2025 by the International Astronomy Society for contributions to computational astrophysics and black hole research.</p>
-                        <a href="https://example.com/award" target="_blank" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Learn More</a>
-                    </div>
-                </div>
-                <!-- News Item 5 -->
-                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Publication">
-                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-book-open text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Collaborative Paper on Black Hole Physics</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>November 5, 2024 | <span class="category bg-blue-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Publication</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Black+Hole+Physics" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Co-authored a paper on the dynamics of accretion disks around supermassive black holes, published in <em>The Astrophysical Journal Letters</em>.</p>
-                        <a href="publications.html" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Read the Paper</a>
-                    </div>
-                </div>
-                <!-- News Item 6 -->
-                <div class="news-card animate-fade-in bg-gray-50 dark:bg-gray-700 rounded-lg shadow-md overflow-hidden" data-category="Event">
-                    <div class="news-header p-4 cursor-pointer flex justify-between items-center" onclick="toggleNews(this)">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-chalkboard-teacher text-blue-500"></i>
-                            <div>
-                                <h3 class="text-lg sm:text-xl font-bold font-roboto drop-shadow-sm">Guest Lecture at University</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400"><i class="fas fa-calendar-alt mr-1"></i>September 12, 2024 | <span class="category bg-purple-500 text-white px-2 py-1 rounded-full text-xs hover:scale-105 transition-transform">Event</span></p>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-down toggle-icon text-gray-500 dark:text-gray-400"></i>
-                    </div>
-                    <div class="news-content hidden p-4 border-t border-gray-200 dark:border-gray-600">
-                        <img src="https://via.placeholder.com/600x200?text=Guest+Lecture" alt="News Image" class="w-full h-40 object-cover rounded-md mb-4">
-                        <p class="text-gray-700 dark:text-gray-300 text-sm sm:text-base">Delivered a guest lecture on "The Role of Computational Astrophysics in Understanding Black Holes" at the University of Astronomy Studies.</p>
-                        <a href="https://example.com/lecture" target="_blank" class="text-blue-500 hover:underline mt-2 inline-block text-sm sm:text-base">Watch the Lecture</a>
-                    </div>
-                </div>
-            </div>
-        </section>
     </div>
-    <button id="back-to-top" class="fixed bottom-6 right-6 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-opacity duration-300 opacity-0 z-20">
-        <i class="fas fa-arrow-up"></i>
-    </button>
-    <footer class="bg-gray-800 dark:bg-gray-700 text-white text-center py-6 sm:py-8 z-10 relative">
-        <div class="container mx-auto px-4 sm:px-6 md:px-8">
-            <div class="flex justify-center space-x-4 mb-3">
-                <a href="https://twitter.com" class="hover:text-blue-400 transition-colors"><i class="fab fa-twitter fa-lg"></i></a>
-                <a href="https://linkedin.com" class="hover:text-blue-400 transition-colors"><i class="fab fa-linkedin fa-lg"></i></a>
-                <a href="https://github.com" class="hover:text-blue-400 transition-colors"><i class="fab fa-github fa-lg"></i></a>
+    <ul id="mobile-menu">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="publications.html">Publications</a></li>
+        <li><a href="news.html">News</a></li>
+        <li><a href="awards.html">Awards</a></li>
+        <li><a href="contact.html">Contact</a></li>
+    </ul>
+</nav>
+
+<main>
+    <div class="page-header">
+        <div class="page-header-label">Latest Updates</div>
+        <h1 class="page-title">News &amp; <em>Highlights</em></h1>
+        <p class="page-desc">Recent milestones, press coverage, talks, and updates from my research journey.</p>
+    </div>
+
+    <div class="timeline">
+
+        <div class="year-divider"><span class="yr">2026</span><div class="line"></div></div>
+
+        <div class="news-item" style="animation-delay:0ms">
+            <div class="news-meta">
+                <span class="news-date">2026</span>
+                <span class="news-tag tag-pub">Publication</span>
             </div>
-            <p class="font-roboto text-sm sm:text-base">© 2025 Souvik Manik. All Rights Reserved.</p>
+            <div class="news-title">New paper accepted in MNRAS: Bow-and-Arrow Radio Galaxy in a Multi-Halo Environment</div>
+            <div class="news-body">A Rad@home discovery paper on a ~560 kpc bow-shock structure in a multi-halo environment has been accepted for publication in Monthly Notices of the Royal Astronomical Society. I am a co-author on this work alongside Hota, Dabhade, Ghosh, Pal, and others.</div>
+            <a href="publications.html" class="news-link">See publication <i class="fas fa-arrow-right" style="font-size:0.7rem"></i></a>
         </div>
-    </footer>
-    <script src="js/custom.js"></script>
+
+        <div class="news-item" style="animation-delay:60ms">
+            <div class="news-meta">
+                <span class="news-date">2026</span>
+                <span class="news-tag tag-pub">Publication</span>
+            </div>
+            <div class="news-title">Paper published in The Astrophysical Journal on Hybrid Morphology Radio Sources (MALS)</div>
+            <div class="news-body">Our study on hybrid morphology radio sources from the MeerKAT Absorption Line Survey — characterising their radio, mid-infrared, and environmental properties — has been published in ApJ 997(2), 157.</div>
+            <a href="https://doi.org/10.3847/1538-4357/ae1f85" target="_blank" class="news-link">Read paper <i class="fas fa-external-link-alt" style="font-size:0.65rem"></i></a>
+        </div>
+
+        <div class="year-divider" style="animation-delay:80ms"><span class="yr">2025</span><div class="line"></div></div>
+
+        <div class="news-item" style="animation-delay:100ms">
+            <div class="news-meta">
+                <span class="news-date">2025</span>
+                <span class="news-tag tag-award">Award</span>
+            </div>
+            <div class="news-title">Outstanding Paper Award at the 32nd West Bengal State Science &amp; Technology Congress</div>
+            <div class="news-body">Received the Outstanding Paper Award for our work on Automated Morphological Classification of Radio Sources from Large Radio Sky Surveys at the 32nd West Bengal State Science and Technology Congress.</div>
+            <a href="awards.html" class="news-link">See all awards <i class="fas fa-arrow-right" style="font-size:0.7rem"></i></a>
+        </div>
+
+        <div class="news-item" style="animation-delay:160ms">
+            <div class="news-meta">
+                <span class="news-date">2025</span>
+                <span class="news-tag tag-media">Media</span>
+            </div>
+            <div class="news-title">Research covered internationally: "Scientists discover 53 powerful quasars with jets up to 50× the Milky Way"</div>
+            <div class="news-body">Our giant radio quasar study was featured in Space.com and other international media outlets, bringing attention to the discovery of 53 powerful quasars with radio jets spanning up to 50 times the size of the Milky Way.</div>
+            <a href="https://www.space.com" target="_blank" class="news-link">Read on Space.com <i class="fas fa-external-link-alt" style="font-size:0.65rem"></i></a>
+        </div>
+
+        <div class="news-item" style="animation-delay:220ms">
+            <div class="news-meta">
+                <span class="news-date">2025</span>
+                <span class="news-tag tag-pub">Publication</span>
+            </div>
+            <div class="news-title">Two new papers published: Giant Radio Quasars (ApJS) and Circular Mystery (ApJ)</div>
+            <div class="news-body">Published two new journal articles: one unveiling 53 new giant radio quasars from the TGSS sky (ApJS 281, 34) and another exploring diffuse emission around a radio galaxy using uGMRT and VLA (ApJ 987, 10).</div>
+            <a href="publications.html" class="news-link">See publications <i class="fas fa-arrow-right" style="font-size:0.7rem"></i></a>
+        </div>
+
+        <div class="year-divider" style="animation-delay:260ms"><span class="yr">2024</span><div class="line"></div></div>
+
+        <div class="news-item" style="animation-delay:280ms">
+            <div class="news-meta">
+                <span class="news-date">2024</span>
+                <span class="news-tag tag-award">Award</span>
+            </div>
+            <div class="news-title">First Place at District-Level Yuva Utsav 2024–25 (NYKS, Govt. of India)</div>
+            <div class="news-body">Received first place at the District-Level Yuva Utsav 2024–25 organised by Nehru Yuva Kendra Sangathan, Government of India, for work on Automated Detection and Classification of Complex Radio Galaxies.</div>
+            <a href="awards.html" class="news-link">See all awards <i class="fas fa-arrow-right" style="font-size:0.7rem"></i></a>
+        </div>
+
+        <div class="news-item" style="animation-delay:340ms">
+            <div class="news-meta">
+                <span class="news-date">2024</span>
+                <span class="news-tag tag-media">Media</span>
+            </div>
+            <div class="news-title">Indian astronomers discover 34 new giant radio sources — covered by NCRA-TIFR, TOI, NDTV</div>
+            <div class="news-body">Our discovery of 34 new giant radio sources (ApJS 273) was announced via NCRA-TIFR press release and covered by major Indian media: The Times of India, The Indian Express, Hindustan Times, and NDTV.</div>
+        </div>
+
+        <div class="news-item" style="animation-delay:380ms">
+            <div class="news-meta">
+                <span class="news-date">2024</span>
+                <span class="news-tag tag-talk">Workshop</span>
+            </div>
+            <div class="news-title">Attended Radio Astronomy School 2024 at NCRA-TIFR, Pune</div>
+            <div class="news-body">Participated in the Radio Astronomy School 2024 organised by the National Centre for Radio Astrophysics (NCRA-TIFR), Tata Institute of Fundamental Research, Pune.</div>
+        </div>
+
+        <div class="year-divider" style="animation-delay:420ms"><span class="yr">2023</span><div class="line"></div></div>
+
+        <div class="news-item" style="animation-delay:440ms">
+            <div class="news-meta">
+                <span class="news-date">Apr 2023</span>
+                <span class="news-tag tag-talk">Conference</span>
+            </div>
+            <div class="news-title">Talk at RETCO-V: Discovery of Giant Radio Quasars from TGSS-ADR1</div>
+            <div class="news-body">Presented work on giant radio quasars — their new sample and associated AGN properties — at REcent Trends in the study of Compact Objects (RETCO-V), Kodaikanal Solar Observatory, IIA, Tamil Nadu.</div>
+        </div>
+
+        <div class="news-item" style="animation-delay:500ms">
+            <div class="news-meta">
+                <span class="news-date">Feb 2023</span>
+                <span class="news-tag tag-talk">Conference</span>
+            </div>
+            <div class="news-title">Talk at GALFLOWS 2023 — IUCAA, Pune</div>
+            <div class="news-body">Presented radio and ionised outflow properties of giant radio quasars at the National Workshop on Galactic Inflows and Outflows on all Scales (GALFLOWS 2023), IUCAA, Pune.</div>
+        </div>
+
+    </div>
+</main>
+
+<button id="back-to-top" aria-label="Back to top"><i class="fas fa-arrow-up"></i></button>
+
+<footer>
+    <div class="footer-socials">
+        <a href="https://twitter.com" target="_blank"><i class="fab fa-twitter"></i></a>
+        <a href="https://linkedin.com" target="_blank"><i class="fab fa-linkedin"></i></a>
+        <a href="https://github.com" target="_blank"><i class="fab fa-github"></i></a>
+        <a href="https://scholar.google.com" target="_blank"><i class="fas fa-user-graduate"></i></a>
+        <a href="https://researchgate.net" target="_blank"><i class="fab fa-researchgate"></i></a>
+    </div>
+    <p>© 2026 <a href="index.html">Souvik Manik</a>. All rights reserved.</p>
+</footer>
+
+<script>
+(function(){
+    const canvas = document.getElementById('starfield');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+    function resize(){ canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    function init(){ resize(); stars = Array.from({length:120},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.2+0.2,o:Math.random()*0.5+0.1,speed:Math.random()*0.015+0.005})); }
+    function draw(){ ctx.clearRect(0,0,canvas.width,canvas.height); stars.forEach(s=>{ s.o+=s.speed; if(s.o>0.7)s.speed=-Math.abs(s.speed); if(s.o<0.05)s.speed=Math.abs(s.speed); ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fillStyle=`rgba(180,190,220,${s.o})`; ctx.fill(); }); requestAnimationFrame(draw); }
+    window.addEventListener('resize',init); init(); draw();
+})();
+document.getElementById('menu-toggle').addEventListener('click',()=>document.getElementById('mobile-menu').classList.toggle('open'));
+const btn = document.getElementById('back-to-top');
+window.addEventListener('scroll',()=>btn.classList.toggle('visible',window.scrollY>300));
+btn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+</script>
 </body>
 </html>
